@@ -1,0 +1,3 @@
+dialogue文件夹里的all_dialogue.npy、all_dialogue_0.7.npy、all_dialogue_group2.npy是手语数据集的对话文本
+
+sl_datasets文件夹里的mae_feat_Phoenix14T、vit_feat_Phoenix14T里面是提取到的手语空间、动作手语特征

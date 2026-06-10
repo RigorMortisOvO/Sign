@@ -1,0 +1,144 @@
+
+# 模型配置部分：定义模型类及相关参数
+# 定义了基于 Flan-T5 的手语翻译模型的核心参数，包括预训练 LLM 的选择（google/flan-t5-xl）、微调策略（LoRA 参数高效微调）、特征融合方式（联合空间和运动特征）、提示词模板（引导 LLM 生成目标文本）等。这些参数直接决定了模型的结构和微调方式。
+model:
+  # 指定模型类的路径（FlanT5SLT类，用于基于Flan-T5的手语翻译）
+  target: spamo.t5_slt.FlanT5SLT
+
+  # 模型参数配置
+  params:
+#    lr: 0.00055  # 学习率
+#    lr: 0.00030  # 学习率
+    lr: 0.00035  # 学习率
+#    lr: 6.0e-4  # 学习率
+#    lr: 1.0e-4  # 学习率
+    monitor: val/bleu4  # 训练过程中监控的验证指标（BLEU-4分数）
+#    model_name: google/flan-t5-xl  # 预训练LLM模型名称（使用Flan-T5-xl）
+    model_name: /root/autodl-tmp/SpaMo/data3/download_model/google/flan-t5-xl  # 预训练LLM模型名称（使用Flan-T5-xl）
+    cache_dir: ./data3/models  # 预训练模型缓存目录
+    inter_hidden: 768  # 中间层特征维度
+    input_size: 2048  # 输入特征的维度（视觉特征的维度）
+    beam_size: 5  # 解码时的束搜索大小
+    max_frame_len: 512  # 最大帧序列长度（视觉特征的最大长度）
+    max_txt_len: 64  # 最大文本序列长度（生成文本的最大长度）
+    frame_sample_rate: 1  # 帧采样率（每1帧采样一次）
+    prompt: "Translate the given sentence into {}."  # 提示词模板（用于引导LLM生成目标语言）
+    tuning_type: lora  # 微调方式（采用LoRA参数高效微调）
+    lora_r: 16  # LoRA的秩（控制低秩矩阵的维度）
+    lora_alpha: 32  # LoRA的缩放因子
+#    lora_dropout: 0.1  # LoRA的dropout概率
+    lora_dropout: 0.2  # LoRA的dropout概率
+    fusion_mode: joint  # 特征融合模式（联合融合空间和运动特征）
+    warm_up_steps: 7200  # 学习率热身步数（0表示不使用热身）
+#    warm_up_steps: 0  # 学习率热身步数（0表示不使用热身）
+    cross_modal_align: true  # 是否启用跨模态对齐（视觉特征与文本特征的对齐损失）
+    combined_loss: true  # 是否使用联合损失（结合生成损失和对齐损失）
+    use_in_context: true  # 是否使用上下文学习（在提示中加入示例）
+    num_in_context: 3  # 上下文学习中加入的示例数量
+    alpha: 1.0  # 联合损失中对齐损失的权重
+    gamma: 0.8  # 视觉-上下文句子损失在总损失中的权重（独立控制）
+
+#    alpha: 0.5  # 联合损失中对齐损失的权重
+#    gamma: 0.4  # 视觉-上下文句子损失在总损失中的权重（独立控制）
+    use_dynamic_weight: true  # 启用上下文句子动态权重（计算w1/w2/w3）
+    weight_normalize: true  # 对相似度权重进行比例归一化
+
+
+
+
+# PyTorch Lightning配置部分：定义训练过程的回调和训练器参数
+# 基于 PyTorch Lightning 框架定义了训练过程的控制参数，包括硬件加速（GPU）、训练精度（bfloat16）、梯度管理（累积和裁剪）、验证频率、学习率监控等。这些参数确保训练过程稳定高效。
+lightning:
+  # 回调函数配置（训练过程中的辅助功能）
+  callback:
+    learning_rate_logger:  # 学习率监控回调
+      target: pytorch_lightning.callbacks.LearningRateMonitor  # 回调类（监控学习率变化）
+      params:
+        logging_interval: step  # 学习率的日志记录间隔（按训练步数）
+
+  # 训练器配置（控制训练过程的核心参数）
+  trainer:
+    accumulate_grad_batches: 2  # 梯度累积的批次数量（每2个批次累积一次梯度）
+    accelerator: gpu  # 使用的加速器（GPU）
+    devices: 1  # 使用的设备数量（1块GPU）
+#    max_epochs: 500  # 最大训练轮次
+    max_epochs: 120  # 最大训练轮次
+    gradient_clip_val: 1.0  # 梯度裁剪阈值（防止梯度爆炸）
+    check_val_every_n_epoch: 2  # 每2个轮次进行一次验证
+    precision: bf16  # 训练精度（使用bfloat16混合精度）
+
+
+
+# 数据配置部分：定义数据加载和处理的参数
+# 定义了数据集的加载方式，包括训练 / 验证 / 测试集的路径（标注、视频、特征文件）、特征类型（空间特征来自 ViT，运动特征来自 VideoMAE）、批处理大小等。这些参数确保模型能正确读取和处理手语视频特征数据。
+data:
+  # 指定数据模块类（基于配置的数据集模块）
+  target: dataset.datamodule.DataModuleFromConfig
+
+  # 数据模块参数
+  params:
+
+    train_batch_size: 4    # 训练阶段
+    val_test_batch_size: 4  # 验证和测试阶段批大小
+    num_workers: 24  # 数据加载的进程数量
+
+    # 训练集配置
+    train:
+      target: dataset.p14t.Phoenix14T  # 训练集类（Phoenix-2014T数据集）
+      params:
+        anno_root: ./preprocess/Phoenix14T  # 标注文件根目录
+        vid_root: ./dataset/Phoenix14T  # 视频文件根目录
+        feat_root: /root/autodl-tmp/SpaMo/data2/sl_datasets/vit_feat_Phoenix14T  # 空间特征（ViT提取）根目录
+        mae_feat_root: /root/autodl-tmp/SpaMo/data2/sl_datasets/mae_feat_Phoenix14T  # 运动特征（VideoMAE提取）根目录
+
+#        context_path: /root/autodl-tmp/SpaMo/data2/dialogue/all_dialogue.npy  # 上下文文件路径
+        context_path: /root/autodl-tmp/SpaMo/data2/dialogue/all_dialogue_group2.npy  # 上下文文件路径
+
+        mode: train  # 数据集模式（训练模式）
+        spatial: true  # 是否使用空间特征
+        spatiotemporal: true  # 是否使用时空（运动）特征
+#        spatial_postfix: _s2wrapping  # 空间特征文件的后缀（多尺度提取的特征）
+#        spatiotemporal_postfix: _overlap-8-pretrained  # 运动特征文件的后缀（重叠窗口提取的预训练特征）
+        spatial_postfix: ''  # 空间特征文件的后缀（多尺度提取的特征）
+        spatiotemporal_postfix: ''  # 运动特征文件的后缀（重叠窗口提取的预训练特征）
+
+    # 验证集配置
+    validation:
+      target: dataset.p14t.Phoenix14T  # 验证集类（同训练集，共享数据集处理逻辑）
+      params:
+        anno_root: ./preprocess/Phoenix14T  # 同训练集
+        vid_root: ./dataset/Phoenix14T  # 同训练集
+        feat_root: /root/autodl-tmp/SpaMo/data2/sl_datasets/vit_feat_Phoenix14T  # 同训练集
+        mae_feat_root: /root/autodl-tmp/SpaMo/data2/sl_datasets/mae_feat_Phoenix14T  # 同训练集
+
+#        context_path: /root/autodl-tmp/SpaMo/data2/dialogue/all_dialogue.npy  # 上下文文件路径
+        context_path: /root/autodl-tmp/SpaMo/data2/dialogue/all_dialogue_group2.npy  # 上下文文件路径
+
+        mode: test  # 数据集模式（验证模式）
+        spatial: true  # 同训练集
+        spatiotemporal: true  # 同训练集
+#        spatial_postfix: _s2wrapping  # 同训练集
+#        spatiotemporal_postfix: _overlap-8-pretrained  # 同训练集
+        spatial_postfix: ''   # 同训练集
+        spatiotemporal_postfix: ''   # 同训练集
+
+    # 测试集配置
+    test:
+      target: dataset.p14t.Phoenix14T  # 测试集类（同训练集）
+      params:
+        anno_root: ./preprocess/Phoenix14T  # 同训练集
+        vid_root: ./dataset/Phoenix14T  # 同训练集
+        feat_root: /root/autodl-tmp/SpaMo/data2/sl_datasets/vit_feat_Phoenix14T  # 同训练集
+        mae_feat_root: /root/autodl-tmp/SpaMo/data2/sl_datasets/mae_feat_Phoenix14T  # 同训练集
+
+#        context_path: /root/autodl-tmp/SpaMo/data2/dialogue/all_dialogue.npy  # 上下文文件路径
+        context_path: /root/autodl-tmp/SpaMo/data2/dialogue/all_dialogue_group2.npy  # 上下文文件路径
+
+        mode: test  # 数据集模式（测试模式）
+        spatial: true  # 同训练集
+        spatiotemporal: true  # 同训练集
+#        spatial_postfix: _s2wrapping  # 同训练集
+#        spatiotemporal_postfix: _overlap-8-pretrained  # 同训练集
+        spatial_postfix: ''   # 同训练集
+        spatiotemporal_postfix: ''   # 同训练集
+

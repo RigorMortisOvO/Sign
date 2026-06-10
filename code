@@ -1,0 +1,29 @@
+
+pip install -r requirements.txt
+
+cd /root/autodl-tmp/SpaMo
+
+python main.py -c configs/finetune.yaml -e bleu
+
+
+python main.py -c configs/finetune.yaml -e bleu --train False --test True --ckpt /root/autodl-tmp/SpaMo/data3/pre_checkpoints/spamo.ckpt
+
+
+WANDB_MODE=disabled python main.py -c configs/finetune.yaml -e bleu
+
+
+WANDB_MODE=disabled python main.py -c configs/finetune.yaml -e bleu --train False --test True --ckpt /root/autodl-tmp/SpaMo/data3/pre_checkpoints/spamo.ckpt
+
+
+WANDB_MODE=disabled
+python main.py -c configs/finetune.yaml -e bleu --train False --test True --ckpt /root/autodl-tmp/SpaMo/logs/2025-10-23T00-14-39_finetune/checkpoints/epoch=00043-step=0039028-bleu4=23.05.ckpt
+
+WANDB_MODE=disabled python main.py -c configs/finetune.yaml -e bleu --train False --test True --ckpt /root/autodl-tmp/SpaMo/logs/2025-11-20T11-37-02_finetune/checkpoints/epoch=00091-step=0081604-bleu4=25.58.ckpt
+
+WANDB_MODE=disabled python main.py -c configs/finetune.yaml -e bleu --train False --test True --ckpt /root/autodl-tmp/SpaMo/logs/2025-11-22T13-43-24_finetune/checkpoints/epoch=00115-step=0102892-bleu4=26.27.ckpt
+
+python main.py -c configs/finetune.yaml -e bleu --resume /root/autodl-tmp/SpaMo/logs/2025-11-06T11-33-50_finetune --ckpt epoch=00037-step=0033706-bleu4=23.75.ckpt
+
+python main.py -c configs/finetune.yaml -e bleu --resume /root/autodl-tmp/SpaMo/logs/2025-11-20T11-37-02_finetune --ckpt epoch=00091-step=0081604-bleu4=25.58.ckpt
+
+WANDB_MODE=disabled python main.py -c configs/finetune.yaml -e bleu --train false --test false --fast_dev_run true --resume /root/autodl-tmp/SpaMo/logs/2025-11-20T11-37-02_finetune --ckpt epoch=00091-step=0081604-bleu4=25.58.ckpt
